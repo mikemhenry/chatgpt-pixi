@@ -39,9 +39,9 @@ jobs:
             dist/skill.zip.sha256
             dist/BUILD-INFO.txt
             dist/upstream/upstream-release-verification.json
-            dist/upstream/upstream-release-asset-verification.json
-            dist/upstream/upstream-slsa-verification.json
-            dist/upstream/upstream-sha256.sum
+            dist/upstream/upstream-release-archive-verification.json
+            dist/upstream/upstream-release-checksum-verification.json
+            dist/upstream/upstream-archive.sha256
           )
           gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" \

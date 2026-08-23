@@ -8,7 +8,6 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  attestations: read
 
 jobs:
   update:
@@ -58,5 +57,5 @@ jobs:
               --head "$branch" \
               --base main \
               --title "Update Pixi to $version" \
-              --body "Automated verified update of the bundled Pixi release. The updater validated the official release, release asset, sha256.sum, SLSA artifact attestation, skill size limit, and runtime round-trip before opening this PR."
+              --body "Automated verified update of the bundled Pixi release. The updater validated GitHub's immutable-release attestation, the tar.gz archive and checksum release assets, the archive checksum sidecar, skill size limit, and runtime round-trip before opening this PR."
           fi

@@ -65,14 +65,17 @@ cat > "$stage/UPSTREAM.md" <<EOF2
 - Upstream project: https://github.com/prefix-dev/pixi
 - Version: $version
 - Release tag: v$version
-- Asset: pixi-$target
+- Upstream archive: pixi-$target.tar.gz
+- Extracted binary: pixi
 - SHA-256: $expected_sha
 - License: BSD-3-Clause; see LICENSES/pixi-BSD-3-Clause.txt
 
-The release build fetches this asset directly from the official prefix-dev/pixi
-GitHub release. CI verifies Pixi's sha256.sum, GitHub's release and release-asset
-attestations, and the SLSA artifact attestation for the raw binary before the
-binary is compressed into this skill.
+The release build fetches the official tar.gz archive and its matching .sha256
+sidecar directly from the prefix-dev/pixi GitHub release. CI verifies GitHub's
+immutable-release attestation for the release and both consumed release assets,
+then verifies the archive checksum sidecar before extracting the Pixi binary.
+The extracted binary must then match the pinned SHA-256 above before it is
+compressed into this skill.
 EOF2
 
 "$repo_root/scripts/validate-skill.py" "$stage"

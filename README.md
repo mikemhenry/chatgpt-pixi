@@ -8,13 +8,12 @@ The skill embeds the official static Linux x86-64 Pixi release binary as an XZ-c
 
 The Pixi binary is **not committed to this repository**. Release automation reconstructs `skill.zip` from the official `prefix-dev/pixi` GitHub release and requires all of the following before packaging:
 
-1. GitHub's release-level attestation verifies for the pinned Pixi release.
-2. GitHub verifies that the downloaded bytes belong to that release asset.
-3. The binary digest matches Pixi's official `sha256.sum` manifest.
-4. `gh attestation verify` validates the SLSA provenance for the exact raw binary and pinned release tag.
-5. The raw binary digest also matches the digest committed in `upstream/pixi.sha256`.
-6. The generated `skill.zip` must be at most 25,000,000 bytes and must pass a round-trip execution test.
-7. Release automation creates a new GitHub artifact attestation for the generated `skill.zip`.
+1. `gh release verify` validates GitHub's immutable-release attestation for the pinned Pixi release.
+2. `gh release verify-asset` verifies that the downloaded tar.gz archive and its `.sha256` sidecar are covered by that release attestation.
+3. The archive digest matches Pixi's official per-archive `.tar.gz.sha256` sidecar.
+4. The archive is extracted and the resulting raw Pixi binary must match the digest committed in `upstream/pixi.sha256`.
+5. The generated `skill.zip` must be at most 25,000,000 bytes and must pass a round-trip execution test.
+6. Release automation creates a separate GitHub artifact attestation for the generated `skill.zip`.
 
 Pixi's BSD-3-Clause license is included in the built skill.
 
@@ -28,7 +27,7 @@ The skill is therefore Linux x86-64 only. The bundled Pixi executable is statica
 
 ## Build locally
 
-Requirements: `gh` 2.96 or newer, `xz`, `python3`, `unzip`, and either `sha256sum` or `shasum`. Authenticate GitHub CLI first so it can retrieve and verify upstream attestations.
+Requirements: `gh` 2.96 or newer, `xz`, `python3`, `unzip`, and either `sha256sum` or `shasum`. Authenticate GitHub CLI first so it can retrieve the release assets and verify GitHub's immutable-release attestation.
 
 From fish:
 
@@ -80,7 +79,7 @@ gh release verify-asset v0.1.0 skill.zip --repo $repo
 
 ## Updating Pixi
 
-The repository has a scheduled workflow that checks the official Pixi latest release. When a new release appears, it verifies the upstream release/binary, confirms that the new binary still fits in a valid skill, then opens an update PR changing only the pinned version and SHA-256.
+The repository has a scheduled workflow that checks the official Pixi latest release. When a new release appears, it verifies GitHub's immutable-release attestation, the upstream release archive and checksum sidecar, extracts the binary, confirms that it still fits in a valid skill, then opens an update PR changing only the pinned version and extracted-binary SHA-256.
 
 You can perform the same update manually from fish:
 
