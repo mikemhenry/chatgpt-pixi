@@ -38,23 +38,36 @@ Use the bundled launcher at `scripts/pixi` as the Pixi executable. Invoke it as 
    - Do not repeatedly retry a deterministic DNS or connection failure and do not silently bypass Pixi with host tooling. Report what URL or channel failed.
    - Existing Pixi environments or package caches may permit offline execution. If a command succeeds from cache, do not infer that general network access is available.
 
-6. Allow intentional project mutations when requested.
+6. Use `--as-is` only as a controlled fallback for unavailable environments.
+   - If a normal `pixi run --locked ...` attempt cannot materialize the environment because package-channel network access is unavailable, inspect the selected task before deciding whether `--as-is` is useful.
+   - `pixi run --as-is` is equivalent to `--no-install --frozen`: it does not install dependencies or update the lockfile. It still executes the checked-in Pixi task with Pixi's activation path plus the inherited process environment, so commands can resolve tools from an already-materialized `.pixi` environment or from the host `PATH`.
+   - Never assume common development tools are present. Hosted execution images can differ between sessions, and a previous `.pixi` environment may or may not exist. Probe required executables through the same `--as-is` context before relying on them.
+   - Prefer a non-mutating executable probe such as `sh scripts/pixi run --as-is -x cargo fmt --version`, `sh scripts/pixi run --as-is -x ruff --version`, or `sh scripts/pixi run --as-is -x python3 --version`. This tests the search path the fallback task will actually use.
+   - Inspect task dependencies as well as the task command. Do not add `--skip-deps` merely to make an offline validation appear to pass.
+   - For Python commands, the interpreter probe is not sufficient when the task imports project dependencies; rely on the actual task result to establish whether those imports are available.
+   - If the required pre-existing tools are available, run the original repository-defined task with `sh scripts/pixi run --as-is ...`; do not replace the task with a hand-written approximation.
+   - Treat an `--as-is` success as "the Pixi task passed using pre-existing tools," not as proof that the locked Pixi environment can be installed or reproduced. Compare relevant tool versions with the lockfile, toolchain file, or repository documentation when exact environment fidelity matters.
+   - If a required executable is absent, report that the task could not be run offline. Do not claim success merely because another task in the same workflow passed.
+   - If a task is skipped because it is outside the scope of the changed files, say explicitly that it was not run. Do not report the aggregate validation suite as passing unless every required component actually ran successfully.
+
+7. Allow intentional project mutations when requested.
    - For requests that intentionally add, remove, upgrade, or update dependencies or workspace configuration, use the appropriate Pixi command without `--locked` and expect both manifest and lockfile changes as applicable.
    - Review the resulting diff and run the repository's validation tasks afterward.
    - Use `pixi global` only when the user explicitly requests standalone global tooling or the repository documents it; do not use it as a substitute for declaring project dependencies.
 
-7. Select the correct environment explicitly when the repository has multiple environments.
+8. Select the correct environment explicitly when the repository has multiple environments.
    - Use `sh scripts/pixi run -e <environment> ...` for commands associated with a non-default environment.
    - Infer the environment from task definitions, documentation, CI, or the user's command examples; do not choose arbitrarily when the distinction matters.
 
-8. Finish by reporting what actually ran.
+9. Finish by reporting what actually ran.
    - Summarize the Pixi task or command, environment, and whether locked mode was used.
+   - If `--as-is` was used, state that explicitly and identify the pre-existing tools that satisfied the task.
    - Surface failures with enough command output to diagnose them.
    - If a command changed `pixi.toml`, `pyproject.toml`, or `pixi.lock`, call that out explicitly.
 
 ## Safety and reproducibility
 
 - Never claim a Pixi command passed unless it was actually executed successfully.
-- Do not bypass a failing Pixi task by invoking underlying host tools unless diagnosing the failure requires it; distinguish diagnostic commands from repository validation.
+- Do not bypass a failing Pixi task by directly invoking underlying host tools unless diagnosing the failure requires it. `pixi run --as-is <task>` is an allowed fallback because Pixi still executes the repository-defined task, but report that it used host/pre-existing tools rather than a materialized Pixi environment.
 - Do not change channels, dependencies, platforms, environments, or lockfiles as a workaround unless the user's task calls for repository changes.
 - Prefer the repository's checked-in conventions over generic Pixi conventions when they conflict.
