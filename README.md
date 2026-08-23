@@ -63,18 +63,28 @@ After downloading `skill.zip` and `skill.zip.sha256` from this repository's GitH
 sha256sum -c skill.zip.sha256
 ```
 
-Then verify GitHub build provenance. Replace `OWNER/chatgpt-pixi` with the repository's actual `owner/name`:
+Then verify GitHub build provenance.
 
 ```fish
-set repo OWNER/chatgpt-pixi
+set repo mikemhenry/chatgpt-pixi
 gh attestation verify skill.zip --repo $repo
 ```
 
 If immutable GitHub Releases are enabled for the repository, you can additionally verify that the downloaded file belongs to that release:
 
 ```fish
-set repo OWNER/chatgpt-pixi
+set repo mikemhenry/chatgpt-pixi
 gh release verify-asset v0.1.0 skill.zip --repo $repo
+```
+
+For example
+```bash
+$ gh release verify-asset v0.1.0 ~/Downloads/skill.zip --repo mikemhenry/chatgpt-pixi
+Calculated digest for skill.zip: sha256:f42d9bc58273c4675b802f7e92d61d0d0cd25d4898b3a038e3e12dbdb8a5c905
+Resolved tag v0.1.0 to sha1:7fac1c66f97451e1b20e9ed988773f0a66b09c69
+Loaded attestation from GitHub API
+
+✓ Verification succeeded! skill.zip is present in release v0.1.0
 ```
 
 ## Updating Pixi
