@@ -72,8 +72,8 @@ cat > "$stage/UPSTREAM.md" <<EOF2
 
 The release build fetches the official tar.gz archive and its matching .sha256
 sidecar directly from the prefix-dev/pixi GitHub release. CI verifies GitHub's
-release and release-asset attestations, the archive checksum sidecar, and the
-SLSA artifact attestation for the archive before extracting the Pixi binary.
+immutable-release attestation for the release and both consumed release assets,
+then verifies the archive checksum sidecar before extracting the Pixi binary.
 The extracted binary must then match the pinned SHA-256 above before it is
 compressed into this skill.
 EOF2

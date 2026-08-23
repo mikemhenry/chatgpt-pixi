@@ -13,11 +13,10 @@ usage() {
 usage: $0 [--version VERSION] [--target TARGET] --output PATH [--expected-sha SHA256] [--verification-dir DIR]
 
 Downloads the official Pixi release archive from prefix-dev/pixi and verifies:
-  1. the release-level GitHub attestation,
-  2. the archive and checksum release assets' GitHub attestations,
+  1. GitHub's immutable-release attestation for the pinned release,
+  2. the archive and checksum sidecar against that release attestation,
   3. the archive digest against Pixi's per-archive .sha256 sidecar,
-  4. the SLSA artifact attestation for the release archive,
-  5. the extracted Pixi binary against the optional pinned raw-binary SHA-256.
+  4. the extracted Pixi binary against the optional pinned raw-binary SHA-256.
 USAGE
 }
 
@@ -68,17 +67,15 @@ actual_archive_sha=$($repo_root/scripts/sha256-file.sh "$tmp/$archive")
     exit 1
 }
 
-# Pixi's build provenance is attached to the packaged release archive rather
-# than the separately-published convenience raw binary.
+# Immutable GitHub releases carry a release attestation covering the tag,
+# commit, and release assets. This is distinct from a SLSA artifact attestation:
+# `gh release verify[-asset]` is the correct verifier for this upstream release.
 if [ -n "$verification_dir" ]; then
     mkdir -p "$verification_dir"
     gh release verify "$tag" -R prefix-dev/pixi --format json > "$verification_dir/upstream-release-verification.json"
     gh release verify-asset "$tag" "$tmp/$archive" -R prefix-dev/pixi --format json > "$verification_dir/upstream-release-archive-verification.json"
     gh release verify-asset "$tag" "$tmp/$checksum_asset" -R prefix-dev/pixi --format json > "$verification_dir/upstream-release-checksum-verification.json"
-    gh attestation verify "$tmp/$archive" -R prefix-dev/pixi --source-ref "refs/tags/$tag" --format json > "$verification_dir/upstream-slsa-archive-verification.json"
     cp "$tmp/$checksum_asset" "$verification_dir/upstream-archive.sha256"
-else
-    gh attestation verify "$tmp/$archive" -R prefix-dev/pixi --source-ref "refs/tags/$tag" >/dev/null
 fi
 
 mkdir -p "$tmp/extracted"
