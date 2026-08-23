@@ -58,5 +58,5 @@ jobs:
               --head "$branch" \
               --base main \
               --title "Update Pixi to $version" \
-              --body "Automated verified update of the bundled Pixi release. The updater validated the official release, release asset, sha256.sum, SLSA artifact attestation, skill size limit, and runtime round-trip before opening this PR."
+              --body "Automated verified update of the bundled Pixi release. The updater validated the official release, tar.gz archive and checksum release assets, archive checksum sidecar, SLSA archive attestation, skill size limit, and runtime round-trip before opening this PR."
           fi
