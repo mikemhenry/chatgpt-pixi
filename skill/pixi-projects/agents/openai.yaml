@@ -1,0 +1,3 @@
+interface:
+  display_name: "Pixi Projects"
+  short_description: "Run Pixi-managed repositories with bundled Pixi"

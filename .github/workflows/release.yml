@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Build verified skill
+        run: ./scripts/build-skill.sh
+
+      - name: Round-trip test packaged skill
+        run: ./scripts/test-skill.sh
+
+      - name: Attest skill build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/skill.zip
+
+      - name: Create GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          assets=(
+            dist/skill.zip
+            dist/skill.zip.sha256
+            dist/BUILD-INFO.txt
+            dist/upstream/upstream-release-verification.json
+            dist/upstream/upstream-release-asset-verification.json
+            dist/upstream/upstream-slsa-verification.json
+            dist/upstream/upstream-sha256.sum
+          )
+          gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --generate-notes \
+            --title "$GITHUB_REF_NAME"

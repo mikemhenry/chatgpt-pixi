@@ -1,0 +1,106 @@
+#!/bin/sh
+set -eu
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+skill_dir=$(CDPATH= cd -- "$script_dir/.." && pwd)
+asset="$skill_dir/assets/pixi-x86_64-unknown-linux-musl.xz"
+version_file="$skill_dir/assets/pixi.version"
+sha_file="$skill_dir/assets/pixi.sha256"
+
+os=$(uname -s)
+arch=$(uname -m)
+if [ "$os" != "Linux" ]; then
+    printf '%s\n' "error: bundled Pixi supports Linux only; found $os" >&2
+    exit 1
+fi
+case "$arch" in
+    x86_64|amd64) ;;
+    *)
+        printf '%s\n' "error: bundled Pixi supports x86-64 only; found $arch" >&2
+        exit 1
+        ;;
+esac
+
+version=$(cat "$version_file")
+expected_sha=$(cat "$sha_file")
+case "$expected_sha" in
+    *[!0-9a-f]*|'')
+        printf '%s\n' 'error: invalid bundled Pixi SHA-256 metadata' >&2
+        exit 1
+        ;;
+esac
+
+if [ -n "${XDG_CACHE_HOME:-}" ]; then
+    cache_root=$XDG_CACHE_HOME
+elif [ -n "${HOME:-}" ]; then
+    cache_root=$HOME/.cache
+else
+    cache_root=/tmp
+fi
+cache_dir="$cache_root/chatgpt-pixi/$version-$(printf '%s' "$expected_sha" | cut -c1-12)"
+pixi_bin="$cache_dir/pixi"
+
+sha256_file() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$1" | awk '{print $1}'
+    elif command -v python3 >/dev/null 2>&1; then
+        python3 - "$1" <<'PY'
+import hashlib
+import pathlib
+import sys
+p = pathlib.Path(sys.argv[1])
+h = hashlib.sha256()
+with p.open('rb') as f:
+    for chunk in iter(lambda: f.read(1024 * 1024), b''):
+        h.update(chunk)
+print(h.hexdigest())
+PY
+    else
+        printf '%s\n' 'error: need sha256sum, shasum, or python3 to verify bundled Pixi' >&2
+        return 1
+    fi
+}
+
+verify_cached() {
+    [ -x "$pixi_bin" ] || return 1
+    actual=$(sha256_file "$pixi_bin") || return 1
+    [ "$actual" = "$expected_sha" ]
+}
+
+if ! verify_cached; then
+    mkdir -p "$cache_dir"
+    tmp="$cache_dir/.pixi.tmp.$$"
+    trap 'rm -f "$tmp"' EXIT HUP INT TERM
+
+    if command -v xz >/dev/null 2>&1; then
+        xz -dc "$asset" > "$tmp"
+    elif command -v python3 >/dev/null 2>&1; then
+        python3 - "$asset" "$tmp" <<'PY'
+import lzma
+import pathlib
+import shutil
+import sys
+src = pathlib.Path(sys.argv[1])
+dst = pathlib.Path(sys.argv[2])
+with lzma.open(src, 'rb') as i, dst.open('wb') as o:
+    shutil.copyfileobj(i, o)
+PY
+    else
+        printf '%s\n' 'error: need xz or python3 to decompress bundled Pixi' >&2
+        exit 1
+    fi
+
+    actual=$(sha256_file "$tmp")
+    if [ "$actual" != "$expected_sha" ]; then
+        printf '%s\n' "error: bundled Pixi SHA-256 mismatch: expected $expected_sha, got $actual" >&2
+        exit 1
+    fi
+
+    chmod 755 "$tmp"
+    mv -f "$tmp" "$pixi_bin"
+    trap - EXIT HUP INT TERM
+fi
+
+exec "$pixi_bin" "$@"

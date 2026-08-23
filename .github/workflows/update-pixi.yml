@@ -1,0 +1,62 @@
+name: Update Pixi
+
+on:
+  schedule:
+    - cron: '17 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  attestations: read
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Check for and verify a new Pixi release
+        id: update
+        shell: bash
+        run: |
+          set -euo pipefail
+          current=$(cat upstream/pixi-version.txt)
+          latest_tag=$(gh api repos/prefix-dev/pixi/releases/latest --jq .tag_name)
+          latest=${latest_tag#v}
+          if [[ "$latest" == "$current" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Pixi $current is current"
+            exit 0
+          fi
+          ./scripts/update-pixi.sh "$latest"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "version=$latest" >> "$GITHUB_OUTPUT"
+
+      - name: Open update pull request
+        if: steps.update.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version='${{ steps.update.outputs.version }}'
+          branch="automation/pixi-$version"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -B "$branch"
+          git add upstream/pixi-version.txt upstream/pixi.sha256
+          git commit -m "Update Pixi to $version"
+          git push --force-with-lease origin "$branch"
+          existing=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$branch" --state open --json number --jq '.[0].number // empty')
+          if [[ -z "$existing" ]]; then
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --head "$branch" \
+              --base main \
+              --title "Update Pixi to $version" \
+              --body "Automated verified update of the bundled Pixi release. The updater validated the official release, release asset, sha256.sum, SLSA artifact attestation, skill size limit, and runtime round-trip before opening this PR."
+          fi
